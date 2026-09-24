@@ -1,0 +1,50 @@
+.iwc-admin .iwc-rooms-table .column-logo {
+	width: 56px;
+}
+
+.iwc-admin .iwc-logo-thumb {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	object-fit: cover;
+	vertical-align: middle;
+}
+
+.iwc-admin .iwc-logo-placeholder {
+	background: linear-gradient(135deg, #a259f7, #5b5bf5);
+	color: #fff;
+	font-weight: 700;
+	font-size: 18px;
+}
+
+.iwc-admin .iwc-archived td {
+	opacity: .6;
+}
+
+.iwc-admin .iwc-logo-field {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.iwc-admin .iwc-logo-preview {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 1px solid #dcdcde;
+}
+
+.iwc-admin .iwc-logo-preview[hidden],
+.iwc-admin .iwc-logo-remove[hidden] {
+	display: none;
+}
+
+.iwc-admin .iwc-role {
+	display: inline-block;
+	min-width: 160px;
+	margin: 0 16px 8px 0;
+}
