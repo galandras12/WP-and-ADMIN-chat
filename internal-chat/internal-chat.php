@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Belső Chat
  * Description:       Kizárólag belsős csevegés WordPress felhasználóknak. Több chat szoba, szerepkör alapú hozzáférés, Messenger stílusú lebegő chat ablak az admin felületen és (szobánként beállíthatóan) a weboldalon.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            galandras12
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'IWC_VERSION', '1.0.0' );
+define( 'IWC_VERSION', '1.1.0' );
 define( 'IWC_DB_VERSION', '1' );
 define( 'IWC_FILE', __FILE__ );
 define( 'IWC_DIR', plugin_dir_path( __FILE__ ) );
@@ -29,6 +29,7 @@ require_once IWC_DIR . 'includes/class-iwc-db.php';
 require_once IWC_DIR . 'includes/class-iwc-rooms.php';
 require_once IWC_DIR . 'includes/class-iwc-messages.php';
 require_once IWC_DIR . 'includes/class-iwc-rest.php';
+require_once IWC_DIR . 'includes/class-iwc-stream.php';
 require_once IWC_DIR . 'includes/class-iwc-admin.php';
 require_once IWC_DIR . 'includes/class-iwc-widget.php';
 

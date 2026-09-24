@@ -20,6 +20,9 @@
 		rooms: [],
 		roomId: parseInt(lsGet('room', '0'), 10) || 0,
 		loadedRoom: 0,
+		// A legnagyobb, a szervertől (lekérdezés / stream) kapott üzenet azonosító.
+		cursor: 0,
+		// A legnagyobb megjelenített üzenet azonosító (a saját, épp elküldött üzenetet is beleértve).
 		lastId: 0,
 		lastRead: 0,
 		hasMore: false,
@@ -30,6 +33,16 @@
 		loadingOlder: false,
 		stopped: false,
 		timer: null
+	};
+
+	// Valós idejű kapcsolat (Server-Sent Events). Ha nem működik, lekérdezéses módra váltunk.
+	var stream = {
+		enabled: !!(cfg.realtime && window.EventSource),
+		source: null,
+		room: 0,
+		failures: 0,
+		received: false,
+		retryTimer: null
 	};
 
 	var ui = {};
@@ -363,7 +376,7 @@
 		resetList();
 		ui.list.appendChild(el('div', 'iwc-empty', t.loading));
 		renderHeader();
-		poll();
+		refresh();
 	}
 
 	/* ---------- üzenetek ---------- */
@@ -372,6 +385,7 @@
 		ui.list.textContent = '';
 		state.ids = {};
 		state.lastId = 0;
+		state.cursor = 0;
 		state.lastRead = 0;
 		state.hasMore = false;
 	}
@@ -415,21 +429,50 @@
 		}
 	}
 
-	function appendMessages(messages, forceScroll) {
+	/**
+	 * Üzenetek hozzáadása azonosító szerinti sorrendben (duplikáció nélkül).
+	 *
+	 * @param {boolean} fromServerFeed A lekérdezésből / streamből jött-e (ez lépteti a kurzort).
+	 */
+	function appendMessages(messages, forceScroll, fromServerFeed) {
 		var stick = forceScroll || nearBottom();
 		var added = false;
 		messages.forEach(function (m) {
+			if (fromServerFeed) {
+				state.cursor = Math.max(state.cursor, m.id);
+			}
 			if (state.ids[m.id]) {
 				return;
 			}
 			state.ids[m.id] = true;
 			removePlaceholder();
-			ui.list.appendChild(renderMessage(m));
+			var node = renderMessage(m);
+			var next = null;
+			if (m.id < state.lastId) {
+				var rows = ui.list.querySelectorAll('.iwc-msg');
+				for (var i = 0; i < rows.length; i++) {
+					if (parseInt(rows[i].dataset.id, 10) > m.id) {
+						next = rows[i];
+						break;
+					}
+				}
+			}
+			ui.list.insertBefore(node, next);
 			state.lastId = Math.max(state.lastId, m.id);
 			added = true;
 		});
 		if (added && stick) {
 			scrollToBottom();
+		}
+	}
+
+	/** Ha máshol (pl. másik böngészőfülön) olvasottnak jelölte, itt is normál betűre vált. */
+	function syncRead() {
+		var bold = ui.list.querySelectorAll('.iwc-unread');
+		for (var i = 0; i < bold.length; i++) {
+			if (parseInt(bold[i].dataset.id, 10) <= state.lastRead) {
+				bold[i].classList.remove('iwc-unread');
+			}
 		}
 	}
 
@@ -504,13 +547,20 @@
 		if (!text || !state.roomId || ui.send.disabled) {
 			return;
 		}
+		var roomId = state.roomId;
 		ui.send.disabled = true;
-		api('POST', 'rooms/' + state.roomId + '/messages', null, { message: text })
-			.then(function () {
+		api('POST', 'rooms/' + roomId + '/messages', null, { message: text })
+			.then(function (message) {
 				ui.input.value = '';
 				autosize();
+				if (roomId === state.roomId) {
+					// Azonnal megjelenik; a stream / lekérdezés később a helyére teszi a köztes üzeneteket.
+					appendMessages([message], true, false);
+				}
 				markRead();
-				poll();
+				if (!streaming()) {
+					poll();
+				}
 			})
 			.catch(function (err) {
 				handleError(err, t.sendError);
@@ -521,17 +571,157 @@
 			});
 	}
 
-	/* ---------- lekérdezés (polling) ---------- */
+	/* ---------- szerverállapot feldolgozása ---------- */
+
+	/**
+	 * A /poll válasz és a stream "state" eseménye ugyanaz a szerkezet.
+	 *
+	 * @param {number} requestedRoom A kérés indításakor kiválasztott szoba.
+	 */
+	function applyState(data, requestedRoom) {
+		if (data.nonce) {
+			nonce = data.nonce;
+		}
+		state.rooms = data.rooms || [];
+
+		if (requestedRoom === state.roomId) {
+			if (data.room !== state.roomId) {
+				// A kért szoba már nem elérhető (archiválták / jogosultság változott) – a szerver választott másikat.
+				state.roomId = data.room;
+				lsSet('room', data.room);
+			}
+			if (data.full) {
+				resetList();
+				state.loadedRoom = state.roomId;
+				state.lastRead = data.last_read || 0;
+				state.hasMore = !!data.has_more;
+				appendMessages(data.messages || [], true, true);
+				showEmptyIfNeeded();
+			} else {
+				state.lastRead = Math.max(state.lastRead, data.last_read || 0);
+				appendMessages(data.messages || [], false, true);
+				syncRead();
+			}
+		}
+
+		renderHeader();
+		checkNewMessages();
+	}
+
+	function needsFullLoad() {
+		return !state.roomId || state.loadedRoom !== state.roomId;
+	}
+
+	/** Azonnali frissítés: látható fülön valós idejű kapcsolat, egyébként lekérdezés. */
+	function refresh() {
+		if (stream.enabled && !document.hidden) {
+			openStream();
+		} else {
+			poll();
+		}
+	}
+
+	/* ---------- valós idejű kapcsolat (Server-Sent Events) ---------- */
+
+	function streaming() {
+		return !!stream.source;
+	}
+
+	function closeStream() {
+		clearTimeout(stream.retryTimer);
+		if (stream.source) {
+			stream.source.close();
+			stream.source = null;
+		}
+	}
+
+	function openStream() {
+		closeStream();
+		clearTimeout(state.timer);
+		if (state.stopped) {
+			return;
+		}
+		var room = state.roomId;
+		var source = new EventSource(url('stream', {
+			context: cfg.context,
+			room: room || 0,
+			after: state.cursor,
+			full: needsFullLoad() ? 1 : 0,
+			_wpnonce: nonce
+		}));
+		stream.source = source;
+		stream.room = room;
+
+		source.addEventListener('state', function (e) {
+			if (stream.source !== source) {
+				return;
+			}
+			stream.failures = 0;
+			stream.received = true;
+			var data;
+			try {
+				data = JSON.parse(e.data);
+			} catch (err) {
+				return;
+			}
+			applyState(data, stream.room);
+			if (stream.room !== state.roomId) {
+				if (state.loadedRoom === state.roomId) {
+					// A szerver váltott szobát (a kért nem elérhető): a stream már az újat követi.
+					stream.room = state.roomId;
+				} else {
+					// A felhasználó közben szobát váltott.
+					openStream();
+				}
+			}
+		});
+
+		// A szerver a kapcsolat élettartama végén lezár: azonnal újranyitjuk.
+		source.addEventListener('bye', function () {
+			if (stream.source === source) {
+				openStream();
+			}
+		});
+
+		source.addEventListener('error', function () {
+			if (stream.source !== source) {
+				return;
+			}
+			closeStream();
+			stream.failures++;
+			if (stream.failures >= 3 && !stream.received) {
+				// A tárhely nem támogatja a streamet: végleg lekérdezéses módra váltunk.
+				stream.enabled = false;
+				poll();
+				return;
+			}
+			if (stream.failures >= 3) {
+				// Valószínűleg lejárt a munkamenet: a lekérdezés kideríti és jelzi.
+				poll();
+				stream.failures = 0;
+				return;
+			}
+			stream.retryTimer = setTimeout(refresh, Math.min(1000 * Math.pow(2, stream.failures), 15000));
+		});
+	}
+
+	/* ---------- lekérdezés (polling, tartalék mód) ---------- */
 
 	function schedule(delay) {
 		clearTimeout(state.timer);
-		if (state.stopped) {
+		if (state.stopped || streaming()) {
 			return;
 		}
 		if (delay === undefined) {
 			delay = document.hidden ? Math.max(cfg.poll * 4, 15000) : cfg.poll;
 		}
-		state.timer = setTimeout(poll, delay);
+		state.timer = setTimeout(function () {
+			if (stream.enabled && !document.hidden) {
+				openStream();
+			} else {
+				poll();
+			}
+		}, delay);
 	}
 
 	function poll() {
@@ -547,40 +737,15 @@
 		state.again = false;
 
 		var roomAtRequest = state.roomId;
-		var full = !roomAtRequest || state.loadedRoom !== roomAtRequest;
+		var full = needsFullLoad();
 
 		api('GET', 'poll', {
 			context: cfg.context,
 			room: roomAtRequest || 0,
-			after: full ? 0 : state.lastId
+			after: full ? 0 : state.cursor,
+			full: full ? 1 : 0
 		}).then(function (data) {
-			if (data.nonce) {
-				nonce = data.nonce;
-			}
-			state.rooms = data.rooms || [];
-
-			if (roomAtRequest === state.roomId) {
-				if (data.room !== roomAtRequest) {
-					// A kért szoba már nem elérhető (archiválták / jogosultság változott).
-					state.roomId = data.room;
-					lsSet('room', data.room);
-					full = true;
-				}
-				if (full) {
-					resetList();
-					state.loadedRoom = state.roomId;
-					state.lastRead = data.last_read || 0;
-					state.hasMore = !!data.has_more;
-					appendMessages(data.messages || [], true);
-					showEmptyIfNeeded();
-				} else {
-					state.lastRead = Math.max(state.lastRead, data.last_read || 0);
-					appendMessages(data.messages || [], false);
-				}
-			}
-
-			renderHeader();
-			checkNewMessages();
+			applyState(data, roomAtRequest);
 		}).catch(function (err) {
 			handleError(err);
 		}).then(function () {
@@ -623,6 +788,7 @@
 	function handleError(err, fallback) {
 		if (err && (err.status === 401 || err.code === 'rest_cookie_invalid_nonce')) {
 			state.stopped = true;
+			closeStream();
 			ui.notice.textContent = t.expired;
 			ui.notice.hidden = false;
 			return;
@@ -638,15 +804,23 @@
 		}
 	}
 
+	// Háttérben lévő fülön nem tartunk nyitva kapcsolatot (kímélni a szervert), csak ritkán kérdezünk.
 	document.addEventListener('visibilitychange', function () {
-		if (!document.hidden) {
-			poll();
+		if (document.hidden) {
+			if (streaming()) {
+				closeStream();
+				schedule();
+			}
+		} else {
+			refresh();
 		}
 	});
 
+	window.addEventListener('pagehide', closeStream);
+
 	function start() {
 		build();
-		poll();
+		refresh();
 	}
 
 	if (document.readyState === 'loading') {
