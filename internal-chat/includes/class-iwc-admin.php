@@ -11,6 +11,7 @@ class IWC_Admin {
 
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
+		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_action( 'admin_post_iwc_save_room', array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_iwc_set_status', array( __CLASS__, 'handle_status' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
@@ -26,6 +27,52 @@ class IWC_Admin {
 			'dashicons-format-chat',
 			71
 		);
+		add_submenu_page( self::SLUG, __( 'Szobák', 'internal-chat' ), __( 'Szobák', 'internal-chat' ), 'manage_options', self::SLUG, array( __CLASS__, 'render' ) );
+		add_submenu_page( self::SLUG, __( 'Belső Chat beállítások', 'internal-chat' ), __( 'Beállítások', 'internal-chat' ), 'manage_options', 'iwc-settings', array( __CLASS__, 'render_settings' ) );
+	}
+
+	public static function register_settings() {
+		register_setting(
+			'iwc_settings',
+			IWC_Stream::OPTION,
+			array(
+				'type'              => 'string',
+				'default'           => '1',
+				'sanitize_callback' => function ( $value ) {
+					return $value ? '1' : '0';
+				},
+			)
+		);
+	}
+
+	public static function render_settings() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Belső Chat beállítások', 'internal-chat' ); ?></h1>
+			<form method="post" action="options.php">
+				<?php settings_fields( 'iwc_settings' ); ?>
+				<input type="hidden" name="<?php echo esc_attr( IWC_Stream::OPTION ); ?>" value="0">
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Valós idejű üzenetek', 'internal-chat' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( IWC_Stream::OPTION ); ?>" value="1" <?php checked( IWC_Stream::enabled() ); ?>>
+								<?php esc_html_e( 'Bekapcsolva (Server-Sent Events)', 'internal-chat' ); ?>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'Az új üzenetek kb. 1 másodpercen belül megjelennek. Minden előtérben lévő, nyitott chat ablak egy PHP folyamatot foglal le, amíg látható. Ha a tárhely túlterhelődik, vagy az üzenetek csak késve érkeznek, kapcsold ki: ilyenkor a chat 4 másodpercenkénti lekérdezéssel működik.', 'internal-chat' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+		</div>
+		<?php
 	}
 
 	public static function assets( $hook ) {

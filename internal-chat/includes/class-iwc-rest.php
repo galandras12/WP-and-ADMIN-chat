@@ -13,6 +13,29 @@ class IWC_Rest {
 		add_action( 'rest_api_init', array( __CLASS__, 'routes' ) );
 	}
 
+	/** A /poll és a /stream közös paraméterei. */
+	public static function state_args() {
+		return array(
+			'context' => array(
+				'type'    => 'string',
+				'enum'    => array( 'front', 'admin' ),
+				'default' => 'front',
+			),
+			'room'    => array(
+				'type'    => 'integer',
+				'default' => 0,
+			),
+			'after'   => array(
+				'type'    => 'integer',
+				'default' => 0,
+			),
+			'full'    => array(
+				'type'    => 'boolean',
+				'default' => false,
+			),
+		);
+	}
+
 	public static function routes() {
 		register_rest_route(
 			self::NS,
@@ -21,21 +44,18 @@ class IWC_Rest {
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'poll' ),
 				'permission_callback' => 'is_user_logged_in',
-				'args'                => array(
-					'context' => array(
-						'type'    => 'string',
-						'enum'    => array( 'front', 'admin' ),
-						'default' => 'front',
-					),
-					'room'    => array(
-						'type'    => 'integer',
-						'default' => 0,
-					),
-					'after'   => array(
-						'type'    => 'integer',
-						'default' => 0,
-					),
-				),
+				'args'                => self::state_args(),
+			)
+		);
+
+		register_rest_route(
+			self::NS,
+			'/stream',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( 'IWC_Stream', 'serve' ),
+				'permission_callback' => 'is_user_logged_in',
+				'args'                => self::state_args(),
 			)
 		);
 
@@ -108,14 +128,20 @@ class IWC_Rest {
 		return $out;
 	}
 
+	public static function poll( WP_REST_Request $request ) {
+		return rest_ensure_response(
+			self::state( get_current_user_id(), $request['context'], (int) $request['room'], (int) $request['after'], (bool) $request['full'] )
+		);
+	}
+
 	/**
 	 * Szobalista olvasatlan számlálókkal + az aktuális szoba új üzenetei.
-	 * after = 0 esetén a szoba legutóbbi üzeneteit adja (első betöltés / szobaváltás).
+	 *
+	 * @param bool $full Teljes betöltés (első megnyitás / szobaváltás): a szoba legutóbbi üzenetei.
+	 *                   Ha a kért szoba nem elérhető, a válasz mindig teljes (full = true).
 	 */
-	public static function poll( WP_REST_Request $request ) {
-		$user_id   = get_current_user_id();
-		$requested = (int) $request['room'];
-		$rooms     = IWC_Rooms::for_user( $user_id, $request['context'] );
+	public static function state( $user_id, $context, $requested, $after, $full ) {
+		$rooms = IWC_Rooms::for_user( $user_id, $context );
 
 		$current   = null;
 		$fallback  = $rooms ? $rooms[0] : null;
@@ -142,11 +168,13 @@ class IWC_Rest {
 		}
 		if ( ! $current ) {
 			$current = $fallback;
+			$full    = true;
 		}
 
 		$data = array(
 			'rooms'     => $room_data,
 			'room'      => $current ? (int) $current->id : 0,
+			'full'      => $full,
 			'messages'  => array(),
 			'last_read' => 0,
 			'has_more'  => false,
@@ -154,17 +182,16 @@ class IWC_Rest {
 		);
 
 		if ( $current ) {
-			$after = (int) $request['after'];
-			if ( $after > 0 && (int) $current->id === $requested ) {
-				$rows = IWC_Messages::after( $current, $after );
-			} else {
+			if ( $full ) {
 				list( $rows, $data['has_more'] ) = IWC_Messages::page( $current, 50 );
+			} else {
+				$rows = IWC_Messages::after( $current, $after );
 			}
 			$data['messages']  = self::format_rows( $rows, $user_id );
 			$data['last_read'] = IWC_Messages::last_read( $user_id, $current->id );
 		}
 
-		return rest_ensure_response( $data );
+		return $data;
 	}
 
 	/** Régebbi üzenetek (felfelé görgetéskor). */

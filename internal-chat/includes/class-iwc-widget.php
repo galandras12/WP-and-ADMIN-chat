@@ -36,12 +36,13 @@ class IWC_Widget {
 			'iwc-chat',
 			'IWC_CONFIG',
 			array(
-				'restUrl' => esc_url_raw( rest_url( IWC_Rest::NS . '/' ) ),
-				'nonce'   => wp_create_nonce( 'wp_rest' ),
-				'context' => $context,
-				'userId'  => $user_id,
-				'poll'    => (int) apply_filters( 'iwc_poll_interval', 4000 ),
-				'i18n'    => array(
+				'restUrl'  => esc_url_raw( rest_url( IWC_Rest::NS . '/' ) ),
+				'nonce'    => wp_create_nonce( 'wp_rest' ),
+				'context'  => $context,
+				'userId'   => $user_id,
+				'poll'     => (int) apply_filters( 'iwc_poll_interval', 4000 ),
+				'realtime' => IWC_Stream::enabled(),
+				'i18n'     => array(
 					'placeholder' => __( 'Aa', 'internal-chat' ),
 					'send'        => __( 'Küldés', 'internal-chat' ),
 					'minimize'    => __( 'Kis méret', 'internal-chat' ),

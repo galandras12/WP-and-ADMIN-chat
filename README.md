@@ -25,6 +25,7 @@ Kizárólag belsős csevegés a WordPress felhasználóinak, asztali Messenger s
 - **Üzenet megjelenés**: felül a felhasználónév, alatta kicsi, halvány szürke időbélyeg, majd az üzenet szövege.
 - **Szobaváltás**: a fejlécben a szoba nevére kattintva lenyílik az elérhető szobák listája.
   Ha nincs másik szoba, a kattintás nem csinál semmit.
+- **Valós idejű**: az új üzenetek kb. 1 másodpercen belül megérkeznek (lásd lent).
 - Enter = küldés, Shift+Enter = új sor. Felfelé görgetve a régebbi üzenetek betöltődnek.
 
 ## Adatmegőrzés (frissítés / törlés esetén)
@@ -48,8 +49,28 @@ Minden adat saját adatbázis-táblákban van (a WordPress táblaelőtaggal, pl.
 Ha valaha véglegesen el akarod távolítani az adatokat, a fenti három táblát és a `iwc_db_version`
 opciót kézzel kell törölni (pl. phpMyAdminban).
 
+## Valós idejű működés (Server-Sent Events)
+
+Az új üzenetek kb. 1 másodpercen belül megjelennek (a teszteken 0,1–0,3 mp), külön szerver nélkül.
+
+- A böngésző egy nyitva tartott kapcsolaton (`/wp-json/iwc/v1/stream`, Server-Sent Events) kapja a változásokat.
+  A szerver másodpercenként egy olcsó ellenőrzést végez, és csak változáskor küld adatot.
+- Egy kapcsolat legfeljebb 25 másodpercig él, utána a szerver lezárja és a böngésző azonnal újranyitja,
+  így a PHP folyamatok nem ragadnak be.
+- Háttérben lévő böngészőfül nem tart nyitva kapcsolatot, csak kb. 16 másodpercenként kérdez le.
+- Ha a tárhely nem támogatja a streamet, a chat magától visszavált 4 másodperces lekérdezésre.
+- **Belső Chat → Beállítások**: a valós idejű mód kikapcsolható.
+
+**Terhelés:** minden látható, nyitott chat ablak egy PHP folyamatot foglal le. Osztott tárhelyen, ahol kevés
+a PHP worker, sok egyidejű felhasználónál ez lassíthatja az oldalt. Ilyenkor kapcsold ki a valós idejű módot,
+vagy csökkentsd a kapcsolat élettartamát.
+
+**Szerverbeállítás:** nginx esetén a plugin küld `X-Accel-Buffering: no` fejlécet. Ha az üzenetek csak
+csomagokban érkeznek, a szerver (pl. Apache `mod_deflate`, Cloudflare) puffereli a választ: a
+`text/event-stream` típusnál ki kell kapcsolni a tömörítést/pufferelést.
+
 ## Technikai megjegyzések
 
-- A kliens a WordPress REST API-n (`/wp-json/iwc/v1/…`) keresztül 4 másodpercenként kérdez le
-  (inaktív böngészőfülön ritkábban). Az intervallum az `iwc_poll_interval` szűrővel módosítható (ms).
+- Szűrők: `iwc_stream_lifetime` (mp, alapból 25), `iwc_stream_interval` (mp, alapból 1),
+  `iwc_poll_interval` (ms, tartalék lekérdezés, alapból 4000).
 - Követelmény: WordPress 5.8+, PHP 7.4+.
