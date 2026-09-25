@@ -1,5 +1,5 @@
 /**
- * Belső Chat – logó kiválasztása a médiatárból a szoba szerkesztésekor.
+ * Admin chat – logó kiválasztása a médiatárból a szoba szerkesztésekor.
  */
 jQuery(function ($) {
 	var frame;

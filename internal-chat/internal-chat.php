@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name:       Belső Chat
+ * Plugin Name:       Admin chat
  * Description:       Kizárólag belsős csevegés WordPress felhasználóknak. Több chat szoba, szerepkör alapú hozzáférés, Messenger stílusú lebegő chat ablak az admin felületen és (szobánként beállíthatóan) a weboldalon.
- * Version:           1.1.0
+ * Version:           1.0.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
- * Author:            galandras12
+ * Author:            galandras12 + AI
  * License:           GPL-2.0-or-later
  * Text Domain:       internal-chat
  *
@@ -19,7 +19,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'IWC_VERSION', '1.1.0' );
+define( 'IWC_VERSION', '1.0.0' );
 define( 'IWC_DB_VERSION', '1' );
 define( 'IWC_FILE', __FILE__ );
 define( 'IWC_DIR', plugin_dir_path( __FILE__ ) );

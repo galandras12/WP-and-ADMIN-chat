@@ -47,7 +47,7 @@ class IWC_Widget {
 					'send'        => __( 'Küldés', 'internal-chat' ),
 					'minimize'    => __( 'Kis méret', 'internal-chat' ),
 					'close'       => __( 'Bezárás', 'internal-chat' ),
-					'open'        => __( 'Belső chat megnyitása', 'internal-chat' ),
+					'open'        => __( 'Admin chat megnyitása', 'internal-chat' ),
 					'switchRoom'  => __( 'Szoba váltása', 'internal-chat' ),
 					'empty'       => __( 'Még nincs üzenet ebben a szobában.', 'internal-chat' ),
 					'loading'     => __( 'Betöltés…', 'internal-chat' ),
