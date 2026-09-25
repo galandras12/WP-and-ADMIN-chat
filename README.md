@@ -1,4 +1,6 @@
-# Belső Chat – WordPress plugin
+# Admin chat – WordPress plugin
+
+**Verzió:** 1.0.0 · **Fejlesztő:** galandras12 + AI
 
 Kizárólag belsős csevegés a WordPress felhasználóinak, asztali Messenger stílusú lebegő chat ablakkal.
 
@@ -6,7 +8,7 @@ Kizárólag belsős csevegés a WordPress felhasználóinak, asztali Messenger s
 
 1. Tömörítsd be az `internal-chat` mappát (`internal-chat.zip`), vagy másold a `wp-content/plugins/` alá.
 2. WordPress admin → Bővítmények → Új hozzáadása → Bővítmény feltöltése → aktiválás.
-3. Admin menü → **Belső Chat** → **Új szoba**.
+3. Admin menü → **Admin chat** → **Új szoba**.
 
 ## Funkciók
 
@@ -59,7 +61,7 @@ Az új üzenetek kb. 1 másodpercen belül megjelennek (a teszteken 0,1–0,3 mp
   így a PHP folyamatok nem ragadnak be.
 - Háttérben lévő böngészőfül nem tart nyitva kapcsolatot, csak kb. 16 másodpercenként kérdez le.
 - Ha a tárhely nem támogatja a streamet, a chat magától visszavált 4 másodperces lekérdezésre.
-- **Belső Chat → Beállítások**: a valós idejű mód kikapcsolható.
+- **Admin chat → Beállítások**: a valós idejű mód kikapcsolható.
 
 **Terhelés:** minden látható, nyitott chat ablak egy PHP folyamatot foglal le. Osztott tárhelyen, ahol kevés
 a PHP worker, sok egyidejű felhasználónál ez lassíthatja az oldalt. Ilyenkor kapcsold ki a valós idejű módot,

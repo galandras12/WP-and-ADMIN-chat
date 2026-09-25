@@ -19,8 +19,8 @@ class IWC_Admin {
 
 	public static function menu() {
 		add_menu_page(
-			__( 'Belső Chat', 'internal-chat' ),
-			__( 'Belső Chat', 'internal-chat' ),
+			__( 'Admin chat', 'internal-chat' ),
+			__( 'Admin chat', 'internal-chat' ),
 			'manage_options',
 			self::SLUG,
 			array( __CLASS__, 'render' ),
@@ -28,7 +28,7 @@ class IWC_Admin {
 			71
 		);
 		add_submenu_page( self::SLUG, __( 'Szobák', 'internal-chat' ), __( 'Szobák', 'internal-chat' ), 'manage_options', self::SLUG, array( __CLASS__, 'render' ) );
-		add_submenu_page( self::SLUG, __( 'Belső Chat beállítások', 'internal-chat' ), __( 'Beállítások', 'internal-chat' ), 'manage_options', 'iwc-settings', array( __CLASS__, 'render_settings' ) );
+		add_submenu_page( self::SLUG, __( 'Admin chat beállítások', 'internal-chat' ), __( 'Beállítások', 'internal-chat' ), 'manage_options', 'iwc-settings', array( __CLASS__, 'render_settings' ) );
 	}
 
 	public static function register_settings() {
@@ -51,7 +51,7 @@ class IWC_Admin {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Belső Chat beállítások', 'internal-chat' ); ?></h1>
+			<h1><?php esc_html_e( 'Admin chat beállítások', 'internal-chat' ); ?></h1>
 			<form method="post" action="options.php">
 				<?php settings_fields( 'iwc_settings' ); ?>
 				<input type="hidden" name="<?php echo esc_attr( IWC_Stream::OPTION ); ?>" value="0">
@@ -145,7 +145,7 @@ class IWC_Admin {
 		$roles    = IWC_Rooms::assignable_roles();
 		$new_url  = self::page_url( array( 'action' => 'new' ) );
 		?>
-		<h1 class="wp-heading-inline"><?php esc_html_e( 'Belső Chat – szobák', 'internal-chat' ); ?></h1>
+		<h1 class="wp-heading-inline"><?php esc_html_e( 'Admin chat – szobák', 'internal-chat' ); ?></h1>
 		<a href="<?php echo esc_url( $new_url ); ?>" class="page-title-action"><?php esc_html_e( 'Új szoba', 'internal-chat' ); ?></a>
 		<hr class="wp-header-end">
 

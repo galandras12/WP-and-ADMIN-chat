@@ -1,5 +1,5 @@
 /**
- * Belső Chat – lebegő, Messenger stílusú chat ablak.
+ * Admin chat – lebegő, Messenger stílusú chat ablak.
  */
 (function () {
 	'use strict';
